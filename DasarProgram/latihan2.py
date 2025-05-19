@@ -1,0 +1,6 @@
+belanja = input("Total Belanja: ")
+uang = input("Total Uang: ")
+kembalian = int(uang) - int(belanja)
+print("Total Belanjaan: ",belanja)
+print("Uang yang kamu punya: ",uang)
+print("Total uang kembalian: ",kembalian)
