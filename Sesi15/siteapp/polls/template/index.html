@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Simple Polls Application using Django</title>
+</head>
+<body>
+    <div class="container mx-auto py-5">
+        <h1 class="text-2xl font-bold">
+            List Pertanyaan
+        </h1>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for question in latest_question_list %}
+                <div class="bg-white rounded-lg shadow-md p-5">
+                    <h2 class="text-lg font-semibold">{{ question.question_text }}</h2>
+                    <p class="text-sm text-gray-600">{{ question.pub_date }}</p>
+                    <form action="#" method="post" class="mt-4">
+                        {% for answer in answer_list %}
+                            {% if answer.question == question %}
+                                <label for="answer{{ forloop.counter }}" class="w-full block cursor-pointer">
+                                    <input type="radio" name="answer" value="{{ answer.id }}" id="answer{{ forloop.counter }}">
+                                    {{ answer.choice_text }}
+                                </label>
+                            {% endif %}
+                        {% endfor %}
+                        <button type="submit" class="cursor-pointer mt-4 bg-blue-500 text-white px-2 py-1 rounded-md">
+                            Submit
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
