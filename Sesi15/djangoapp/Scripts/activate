@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\ridho\OneDrive\ドキュメント\Project Coding\Dasar Pemrograman\Sesi15\djangoapp"
+VIRTUAL_ENV="C:\Users\ridho\OneDrive\ドキュメント\Project Coding\django-site-main\djangoapp"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

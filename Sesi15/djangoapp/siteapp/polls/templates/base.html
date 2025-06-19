@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Aplikasi Polling{% endblock %}</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body>
+    <div class="container mx-auto py-5">
+        {% block content %}
+        {% endblock %}
+    </div>
+    <footer class="text-center text-gray-500 mt-10 border-t pt-4">
+        <p>&copy; {{ tahun }} - {{ namaaplikasi }}</p> </footer>
+    </footer>
+</body>
+</html>

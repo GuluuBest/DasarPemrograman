@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\ridho\OneDrive\ドキュメント\Project Coding\Dasar Pemrograman\Sesi15\djangoapp
+set VIRTUAL_ENV=C:\Users\ridho\OneDrive\ドキュメント\Project Coding\django-site-main\djangoapp
 
 if not defined PROMPT set PROMPT=$P$G
 
