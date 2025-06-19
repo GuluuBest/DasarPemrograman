@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <title>Hasil Voting</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+  <body>
+    <div class="container mx-auto py-5">
+      <h1 class="text-2xl font-bold mb-4">{{ question.question_text }}</h1>
+
+      <ul class="list-disc pl-5">
+        {% for choice in question.choice_set.all %}
+        <li>{{ choice.choice_text }} -- {{ choice.votes }} suara</li>
+        {% endfor %}
+      </ul>
+
+      <a
+        href="{% url 'polls:detail' question.id %}"
+        class="mt-6 inline-block text-blue-600 hover:underline"
+        >Vote lagi?</a
+      >
+      <br />
+      <a
+        href="{% url 'polls:index' %}"
+        class="mt-1 inline-block text-blue-600 hover:underline"
+        >Kembali ke daftar pertanyaan</a
+      >
+    </div>
+
+    <footer class="text-center text-gray-500 mt-10 border-t pt-4">
+      <p>&copy; {{ tahun }} - {{ namaaplikasi }}</p>
+    </footer>
+  </body>
+</html>

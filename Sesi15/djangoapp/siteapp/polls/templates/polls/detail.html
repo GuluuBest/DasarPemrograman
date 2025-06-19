@@ -1,0 +1,45 @@
+{% extends 'polls/base.html' %} {% block title %}Vote - {{
+question.question_text }}{% endblock %} {% block content %}
+<h1 class="text-2xl font-bold mb-2">{{ question.question_text }}</h1>
+
+{% if error_message %}
+<p class="text-red-500 font-bold my-4">{{ error_message }}</p>
+{% endif %}
+
+<form action="{% url 'polls:vote' question.id %}" method="post">
+  {% csrf_token %} {% for choice in question.choice_set.all %}
+  <div class="my-2 p-2 rounded-md hover:bg-gray-100">
+    <label for="choice-{{ choice.id }}" class="cursor-pointer block">
+      <input
+        type="radio"
+        name="choice"
+        value="{{ choice.id }}"
+        id="choice-{{ choice.id }}"
+        class="mr-2"
+        required
+      />
+      {{ choice.choice_text }}
+    </label>
+  </div>
+  {% endfor %}
+
+  <button
+    type="submit"
+    class="cursor-pointer mt-4 bg-blue-500 text-white px-5 py-2 rounded-md hover:bg-blue-600"
+  >
+    Vote
+  </button>
+</form>
+
+<div class="mt-8 border-t pt-4">
+  <a
+    href="{% url 'polls:results' question.id %}"
+    class="text-green-600 hover:underline"
+    >Lihat Hasil</a
+  >
+  <span class="mx-2">|</span>
+  <a href="{% url 'polls:index' %}" class="text-gray-600 hover:underline"
+    >Kembali ke Daftar Pertanyaan</a
+  >
+</div>
+{% endblock %}

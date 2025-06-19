@@ -1,59 +1,42 @@
-from django.shortcuts import render
-from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponse, HttpResponseRedirect
+from django.urls import reverse
 from .models import Question, Choice, Settings
-
-
-def raw_index(request):
-    question_list = Question.objects.all()
-    output = ""
-
-    for a in question_list:
-        output += f"{a.question_text}<br>"
-        #option list
-        option_list = Choice.objects.filter(question=a)
-        for b in option_list:
-            output += f"{b.choice_text}<br>"
-        output += "<br>"
-
-    return HttpResponse(output)
-
-def html_version(request):
-    question_list = Question.objects.all()
-    answer_list = Choice.objects.all()
-    context = {
-        "questions_option": question_list,
-        "answers": answer_list
-    }
-    return render(request, "form.html", context)
-
-def index_other(request):
-    latest_question_list = Question.objects.order_by('-pub_date')[:5]
-    output = ""
-    for q in latest_question_list:
-        output += f"{q.question_text}<br>"
-        #answer list
-        answer_list = Choice.objects.filter(question=q)
-        list_answer = ", ".join([a.choice_text for a in answer_list])
-        output += f"Pilihan: {list_answer}"
-        output += "<br><br>"
-    return HttpResponse(output)
 
 def html_index(request):
     latest_question_list = Question.objects.order_by('-pub_date').prefetch_related('choice_set')[:5]
-    app_settings = Settings.objects.all() # Ambil semua data settings
-
-    context = {
-        "latest_question_list": latest_question_list,
-        "settings": app_settings, # Kirim data settings ke template
-    }
+    context = { "latest_question_list": latest_question_list }
     return render(request, "polls/index.html", context)
 
+def detail(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    return render(request, 'polls/detail.html', {'question': question})
+
+def vote(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    try:
+        selected_choice = question.choice_set.get(pk=request.POST['choice'])
+    except (KeyError, Choice.DoesNotExist):
+        context = {
+            'question': question,
+            'error_message': "Anda belum memilih salah satu pilihan.",
+        }
+        return render(request, 'polls/detail.html', context)
+    else:
+        selected_choice.votes += 1
+        selected_choice.save()
+        return HttpResponseRedirect(reverse('polls:results', args=(question.id,)))
+
+def results(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    return render(request, 'polls/results.html', {'question': question})
+
 def profile(request):
-    return HttpResponse("Hello, I Write other text here. You're at the polls profile.")
+    return HttpResponse("Ini adalah halaman profil.")
 
 def contact(request):
     return HttpResponse("Ini adalah halaman kontak.")
-
+    
 def address(request):
     return HttpResponse("Alamat saya di Kp Sundawenang Kecamatan Parungkuda")
 
