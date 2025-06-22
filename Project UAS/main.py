@@ -1,294 +1,146 @@
+import streamlit as st
 import pandas as pd
 import re
+from data import DAFTAR_RUANGAN
 
-def normalisasi_nama_dosen(nama):
-    nama = nama.split("//")[0].strip()
-    nama = re.sub(r"\s+", " ", nama)
-    nama = nama.replace(" ,", ",").replace(" .", ".").replace(",", ", ")
-    nama = nama.lower()
+st.set_page_config(
+    page_title="Sistem Booking Jadwal",
+    layout="wide"
+)
 
-    gelar_map = {
-        "s.sit": "S.Si.T.",
-        "s.si.t": "S.Si.T.",
-        "s.kom": "S.Kom.",
-        "m.kom": "M.Kom.",
-        "m.t": "M.T.",
-        "mt": "M.T.",
-        "m.stat": "M.Stat.",
-        "m.mat": "M.Mat.",
-        "ph.d": "Ph.D.",
-        "drs.": "Drs.",
-        "dr.": "Dr.",
-        "st.": "S.T.",
-        "s.t": "S.T."
-    }
+FILE_JADWAL_SUMBER = "data_jadwal.xlsx"
+FILE_BOOKING_HASIL = "booking_jadwal.xlsx"
 
-    for k, v in gelar_map.items():
-        nama = re.sub(rf"\b{k}\b", v.lower(), nama)
-
-    kata = []
-    for w in nama.split():
-        if w.endswith('.'):
-            kata.append(w.upper())
-        else:
-            kata.append(w.capitalize())
-
-    return ' '.join(kata)
-
-def load_kelas_dari_excel(file_excel):
-    xls = pd.ExcelFile(file_excel)
-    sheets = ['angkatan 2022', 'angkatan 2023', 'angkatan 2024']
-    semua_kelas = {}
-
-    for sheet in sheets:
-        df = xls.parse(sheet)
-        kelas_data = extract_kelas_dan_jadwal(df)
-        semua_kelas.update(kelas_data)
-
-    return semua_kelas, sheets
-
-def extract_kelas_dan_jadwal(df):
-    kelas_dict = {}
-    kelas_nama = None
-    for i, row in df.iterrows():
-        if isinstance(row.iloc[0], str) and "Kelas" in row.iloc[0]:
-            kelas_nama = row.iloc[0].split(":")[1].strip().split(" ")[0]
-            if kelas_nama not in kelas_dict:
-                kelas_dict[kelas_nama] = []
-        elif isinstance(row.iloc[2], str):
-            if kelas_nama:
-                kelas_dict[kelas_nama].append({
-                    "mata_kuliah": row.iloc[2],
-                    "hari": row.iloc[4] if pd.notna(row.iloc[4]) else "",
-                    "jam": row.iloc[5] if pd.notna(row.iloc[5]) else "",
-                    "dosen": row.iloc[7] if pd.notna(row.iloc[7]) else ""
-                })
-    return kelas_dict
-
-daftar_ruangan = [
-    {"gedung": "A", "lantai": 4, "ruangan": "Lab Software"},
-    {"gedung": "A", "lantai": 4, "ruangan": "Lab Hardware"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4A"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4B"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4C"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4D"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4E"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4F"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4G"},
-    {"gedung": "B", "lantai": 4, "ruangan": "B4H"},
-]
-
-jadwal_terisi = []
-jam_istirahat = ["12:00 - 13:00", "18:00 - 19:00"]
-
-def validasi_jam_istirahat(hari, jam):
-    waktu_istirahat = [
-        ("12:00", "13:00"),  
-        ("18:00", "19:00") 
-    ]
-    
-    waktu_jumat = [("11:30", "13:30")]  
-
-    mulai, selesai = jam.split(" - ")
-
-    
-    if hari.lower() == "jumat":
-        for istirahat_mulai, istirahat_selesai in waktu_jumat:
-            if (mulai < istirahat_selesai and selesai > istirahat_mulai):
-                return False  
-
-    
-    for istirahat_mulai, istirahat_selesai in waktu_istirahat:
-        if (mulai < istirahat_selesai and selesai > istirahat_mulai):
-            return False  
-
-    return True
-
-def validasi_kelas_jadwal(kelas, hari, jam):
-    if kelas.startswith("TI22M") or kelas.startswith("TI23M") or kelas.startswith("TI24M"):
-        
-        mulai, selesai = jam.split(" - ")
-        if not ("18:00" <= mulai < "21:00" and "18:00" < selesai <= "21:00"):
-            return False
-    elif kelas.startswith("TI22B") or kelas.startswith("TI23B") or kelas.startswith("TI24B"):
-        
-        if hari.lower() != "sabtu":
-            return False
-    elif kelas.startswith("TI22C") or kelas.startswith("TI23C") or kelas.startswith("TI24C"):
-        
-        if hari.lower() != "minggu":
-            return False
-    return True
-
-def ruangan_tersedia(hari, jam):
-    if jam in jam_istirahat:
-        return []
-
-    tersedia = []
-    for r in daftar_ruangan:
-        bentrok = False
-        for j in jadwal_terisi:
-            if (j["gedung"] == r["gedung"] and j["lantai"] == r["lantai"] and j["ruangan"] == r["ruangan"] and j["hari"].lower() == hari.lower() and j["jam"] == jam):
-                bentrok = True
-                break
-        if not bentrok:
-            tersedia.append(r)
-    return tersedia
-
-def input_booking(jadwal_kelas_excel):
-    print("\n=== Booking Jadwal Kuliah Dosen ===")
-
-    angkatan_map = {}
-    for kls in jadwal_kelas_excel.keys():
-        prefix = kls[:5]
-        angkatan = prefix[:4]
-        angkatan_map.setdefault(angkatan, []).append(kls)
-
-    angkatan_list = sorted(angkatan_map.keys())
-    print("\nDaftar Angkatan:")
-    for i, ang in enumerate(angkatan_list, 1):
-        print(f"{i}. {ang}")
-
-    while True:
-        try:
-            pilihan = int(input("Pilih nomor angkatan: ")) - 1
-            angkatan_pilih = angkatan_list[pilihan]
-            break
-        except (ValueError, IndexError):
-            print("Input salah! Masukkan angka sesuai daftar.")
-
-    kelas_list = sorted(angkatan_map[angkatan_pilih])
-    print(f"\nDaftar Kelas Angkatan {angkatan_pilih}:")
-    for i, kls in enumerate(kelas_list, 1):
-        print(f"{i}. {kls}")
-    kelas = kelas_list[int(input("Pilih nomor kelas: ")) - 1]
-
-    mata_kuliah_list = sorted(set(mk['mata_kuliah'] for mk in jadwal_kelas_excel[kelas] if mk['mata_kuliah'].lower() != "mata kuliah"))
-    print(f"\nMata Kuliah untuk {kelas}:")
-    for i, mk in enumerate(mata_kuliah_list, 1):
-        print(f"{i}. {mk}")
-    mata_kuliah = mata_kuliah_list[int(input("Pilih nomor mata kuliah: ")) - 1]
-
-    print("\nMasukkan Hari dan Jam untuk kuliah:")
-    hari = input("Hari (Senin - Minggu): ").strip()
-    jam = input("Jam (contoh: 08:00 - 21:00): ").strip()
-
-    
-    if not validasi_jam_istirahat(hari, jam):
-        print("Jadwal tidak valid karena melintasi waktu istirahat.")
-        return
-
-    if not validasi_kelas_jadwal(kelas, hari, jam):
-        print(f"Jadwal tidak valid untuk kelas karyawan {kelas} pada hari {hari} dan jam {jam}.")
-        return
-
-    dosen_set = set()
-    for kelas_data in jadwal_kelas_excel.values():
-        for mk in kelas_data:
-            if mk['mata_kuliah'] and mata_kuliah.strip().lower() in mk['mata_kuliah'].strip().lower():
-                if mk['dosen']:
-                    nama_bersih = normalisasi_nama_dosen(mk['dosen'])
-                    dosen_set.add(nama_bersih)
-
-    dosen_list = sorted(dosen_set)
-    print(f"\nPilih Dosen Pengampu {mata_kuliah}:")
-    for i, d in enumerate(dosen_list, 1):
-        print(f"{i}. {d}")
-    dosen = dosen_list[int(input("Pilih dosen: ")) - 1]
-
-    for jadwal in jadwal_terisi:
-        if (
-            (jadwal['gedung'] == r['gedung'] and
-             jadwal['lantai'] == r['lantai'] and
-             jadwal['ruangan'] == r['ruangan'] and
-             jadwal['hari'].lower() == hari.lower() and
-             jadwal['jam'] == jam)
-            or
-            (jadwal['dosen'].lower() == dosen.lower() and jadwal['hari'].lower() == hari.lower() and jadwal['jam'] == jam)
-        ):
-            print("Jadwal bentrok! Ruangan atau dosen sudah terpakai pada waktu tersebut.")
-            return
-
-    ruangan_opsi = ruangan_tersedia(hari, jam)
-    if not ruangan_opsi:
-        print("Tidak ada ruangan tersedia pada waktu tersebut.")
-        return
-
-    print("\nRuangan Tersedia:")
-    for idx, r in enumerate(ruangan_opsi, 1):
-        print(f"{idx}. Gedung {r['gedung']} - Lantai {r['lantai']} - Ruangan {r['ruangan']}")
-
-    pilihan = int(input("Pilih nomor ruangan: ")) - 1
-    ruangan_pilih = ruangan_opsi[pilihan]
-
-    jadwal_baru = {
-        "kelas": kelas,
-        "mata_kuliah": mata_kuliah,
-        "dosen": dosen,
-        "gedung": ruangan_pilih["gedung"],
-        "lantai": ruangan_pilih["lantai"],
-        "ruangan": ruangan_pilih["ruangan"],
-        "hari": hari,
-        "jam": jam
-    }
-
-    jadwal_terisi.append(jadwal_baru)
-    print("\nJadwal berhasil dibooking!")
-
-def tampilkan_jadwal():
-    print("\n=== Daftar Jadwal Kuliah Terbooking ===")
-    if not jadwal_terisi:
-        print("(Kosong)")
-    for i, j in enumerate(jadwal_terisi, 1):
-        print(f"{i}. {j['dosen']} - {j['mata_kuliah']} ({j['kelas']}) di Gedung {j['gedung']} Lt.{j['lantai']} R.{j['ruangan']}, {j['hari']} {j['jam']}")
-
-def export_jadwal(nama_file="booking_jadwal.xlsx"):
-    if not jadwal_terisi:
-        print("Belum ada data jadwal untuk diekspor.")
-        return
-
+@st.cache_data
+def load_data_from_mapping_sheet(file_path):
+    TARGET_SHEET = "Mapping mata kuliah"
     try:
-        existing_df = pd.read_excel(nama_file)
+        xls = pd.ExcelFile(file_path)
+        sheet_name = next((s_name for s_name in xls.sheet_names if TARGET_SHEET.lower() in s_name.lower()), None)
+        if sheet_name is None:
+            st.warning(f"Info: Tidak dapat menemukan sheet '{TARGET_SHEET}' di file `{file_path}`.")
+            return pd.DataFrame(columns=['kelas', 'dosen'])
+        df = pd.read_excel(file_path, sheet_name=sheet_name, skiprows=2)
+        required_columns = ['Kelas', 'Nama Dosen']
+        if not all(col in df.columns for col in required_columns):
+            st.error(f"GAGAL: Kolom yang dibutuhkan '{required_columns}' tidak ditemukan.")
+            return None
+        df = df[required_columns].rename(columns={'Kelas': 'kelas', 'Nama Dosen': 'dosen'})
+        df.dropna(subset=['kelas', 'dosen'], inplace=True)
+        return df
     except FileNotFoundError:
-        existing_df = pd.DataFrame()
-
-    new_df = pd.DataFrame(jadwal_terisi)
-    combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-    combined_df = combined_df.drop_duplicates()
-
-    combined_df.to_excel(nama_file, index=False)
-    jadwal_terisi.clear()
-
-    print(f"Jadwal berhasil diekspor {nama_file}")
-
-def menu():
-    file_excel = "jadwal.xlsx"  
-    try:
-        jadwal_kelas_excel, _ = load_kelas_dari_excel(file_excel)
+        st.info(f"File sumber `{file_path}` belum ditemukan. Data akan kosong.")
+        return pd.DataFrame(columns=['kelas', 'dosen'])
     except Exception as e:
-        print(f"Gagal memuat file Excel: {e}")
-        return
+        st.error(f"Terjadi error saat membaca file Excel: {e}")
+        return None
 
-    while True:
-        print("\n=== MENU UTAMA ===")
-        print("1. Booking Jadwal")
-        print("2. Tampilkan Jadwal")
-        print("3. Export Jadwal")
-        print("4. Keluar")
+def load_booked_schedules():
+    try:
+        return pd.read_excel(FILE_BOOKING_HASIL)
+    except FileNotFoundError:
+        return pd.DataFrame()
 
-        pilihan = input("Pilih menu (1/2/3/4): ")
+def save_booked_schedules(df_booking):
+    df_booking.to_excel(FILE_BOOKING_HASIL, index=False)
 
-        if pilihan == "1":
-            input_booking(jadwal_kelas_excel)
-        elif pilihan == "2":
-            tampilkan_jadwal()
-        elif pilihan == "3":
-            export_jadwal()
-        elif pilihan == "4":
-            print("Keluar dari aplikasi.")
-            break
-        else:
-            print("Pilihan tidak valid.")
+def cek_bentrok_jadwal(booking_baru, jadwal_tersimpan):
+    if jadwal_tersimpan.empty:
+        return None
+    jadwal_list = jadwal_tersimpan.to_dict('records')
+    mulai_baru_str, selesai_baru_str = booking_baru['Jam'].split(' - ')
+    for jadwal_lama in jadwal_list:
+        if 'Jam' not in jadwal_lama or not isinstance(jadwal_lama['Jam'], str):
+            continue
+        mulai_lama_str, selesai_lama_str = jadwal_lama['Jam'].split(' - ')
+        if max(mulai_baru_str, mulai_lama_str) < min(selesai_baru_str, selesai_lama_str) and booking_baru['Hari'] == jadwal_lama['Hari']:
+            if booking_baru['Ruangan'] == jadwal_lama['Ruangan'] and booking_baru['Gedung'] == jadwal_lama['Gedung']:
+                return f"BENTROK: Ruangan {booking_baru['Ruangan']} sudah dipakai oleh {jadwal_lama['Dosen']} di jam tersebut."
+            if booking_baru['Dosen'] == jadwal_lama['Dosen']:
+                return f"BENTROK: Dosen {booking_baru['Dosen']} sudah ada jadwal di Ruangan {jadwal_lama['Ruangan']} pada jam tersebut."
+    return None
 
-if __name__ == "__main__":
-    menu()
+master_df = load_data_from_mapping_sheet(FILE_JADWAL_SUMBER)
+df_booking = load_booked_schedules()
+
+st.title("Sistem Booking Jadwal Dosen")
+st.write("Selamat datang di aplikasi penjadwalan. Klik panel di bawah untuk membuat booking baru.")
+
+st.divider()
+total_booking = len(df_booking)
+total_kelas = master_df['kelas'].nunique() if master_df is not None and not master_df.empty else 0
+col1_metric, col2_metric, col3_metric = st.columns(3)
+col1_metric.metric(label="Total Jadwal di-Booking", value=total_booking)
+col2_metric.metric(label="Total Kelas Terdaftar", value=total_kelas)
+st.divider()
+
+with st.expander("Klik di sini untuk membuat booking baru"):
+    if master_df is not None:
+        semua_kelas_unik = set(kls.strip().upper() for k_list in master_df['kelas'].dropna() for kls in str(k_list).split(','))
+        angkatan_set = set(match.group(1) + match.group(2) for kls in semua_kelas_unik if (match := re.match(r'([a-zA-Z]+)(\d{2})', kls)))
+        angkatan_options = sorted(list(angkatan_set))
+        
+        col1_form, col2_form = st.columns(2)
+
+        with col1_form:
+            angkatan_pilihan = st.selectbox("Pilih Angkatan", options=angkatan_options, index=None, placeholder="Pilih angkatan...")
+            kelas_pilihan = None
+            if angkatan_pilihan:
+                options_kelas = sorted([kls for kls in semua_kelas_unik if kls.startswith(angkatan_pilihan)])
+                kelas_pilihan = st.selectbox("Pilih Kelas", options=options_kelas, index=None, placeholder="Pilih kelas...")
+            
+            matkul_manual = st.text_input("Masukkan Mata Kuliah")
+            all_dosen_options = sorted(master_df['dosen'].unique())
+            dosen_pilihan = st.selectbox("Pilih Dosen", options=all_dosen_options, index=None, placeholder="Pilih dari semua dosen...")
+
+        with col2_form:
+            hari = st.selectbox("Pilih Hari", options=["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"], index=None)
+            jam_manual = st.text_input("Masukkan Jam", placeholder="Contoh: 08:00 - 10:00")
+            
+            st.divider() 
+            
+            gedung_options = sorted(list(set(r['gedung'] for r in DAFTAR_RUANGAN)))
+            gedung_pilihan = st.selectbox("Pilih Gedung", options=gedung_options, index=None, placeholder="Pilih gedung...")
+            lantai_pilihan = None
+            if gedung_pilihan:
+                lantai_options = sorted(list(set(r['lantai'] for r in DAFTAR_RUANGAN if r['gedung'] == gedung_pilihan)))
+                lantai_pilihan = st.selectbox("Pilih Lantai", options=lantai_options, index=None, placeholder="Pilih lantai...")
+            ruangan_pilihan = None
+            if gedung_pilihan and lantai_pilihan:
+                ruangan_options = sorted([r['ruangan'] for r in DAFTAR_RUANGAN if r['gedung'] == gedung_pilihan and r['lantai'] == lantai_pilihan])
+                ruangan_pilihan = st.selectbox("Pilih Ruangan", options=ruangan_options, index=None, placeholder="Pilih ruangan...")
+
+        if st.button("Simpan Jadwal Booking", type="primary", use_container_width=True):
+            if not all([angkatan_pilihan, kelas_pilihan, matkul_manual, dosen_pilihan, hari, jam_manual, gedung_pilihan, lantai_pilihan, ruangan_pilihan]):
+                st.error("Semua field harus diisi dengan benar sebelum booking!")
+            else:
+                booking_baru = {
+                    "Angkatan": angkatan_pilihan, "Kelas": kelas_pilihan, 
+                    "Mata Kuliah": matkul_manual, "Dosen": dosen_pilihan, "Hari": hari, 
+                    "Jam": jam_manual, "Gedung": gedung_pilihan, 
+                    "Lantai": lantai_pilihan, "Ruangan": ruangan_pilihan
+                }
+                
+                pesan_bentrok = cek_bentrok_jadwal(booking_baru, df_booking)
+                
+                if pesan_bentrok:
+                    st.error(pesan_bentrok)
+                else:
+                    booking_baru_df = pd.DataFrame([booking_baru])
+                    df_updated_booking = pd.concat([df_booking, booking_baru_df], ignore_index=True)
+                    try:
+                        save_booked_schedules(df_updated_booking)
+                        st.success(f"Jadwal untuk {dosen_pilihan} di kelas {kelas_pilihan} berhasil dibooking!")
+                        st.balloons()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Gagal menyimpan booking: {e}")
+    else:
+        st.warning("Data sumber tidak dapat dimuat. Silakan periksa file data_jadwal.xlsx.")
+
+st.divider()
+st.header("Jadwal yang Sudah Terisi")
+if df_booking.empty:
+    st.info("Belum ada jadwal yang dibooking.")
+else:
+    st.dataframe(df_booking, use_container_width=True, hide_index=True)
